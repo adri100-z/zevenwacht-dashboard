@@ -64,10 +64,15 @@
   .tsec{padding:8px 16px 24px}
   table{width:100%;border-collapse:collapse;table-layout:fixed}
   th{text-align:left;color:#8e8e93;font-weight:600;padding:6px 4px;border-bottom:1px solid #e5e5ea;font-size:10px;text-transform:uppercase;letter-spacing:0.04em}
-  th:nth-child(1){width:62%}th:nth-child(2){width:13%}th:nth-child(3){width:25%}
+  th:nth-child(1){width:70%}th:nth-child(2){width:30%}
   td{padding:8px 4px;border-bottom:1px solid #f2f2f7;color:#1c1c1e;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   td.n{text-align:right;font-variant-numeric:tabular-nums}
   .msg{text-align:center;padding:40px 20px;color:#8e8e93;font-size:14px;line-height:1.6}
+  .clear-btn{display:none;width:100%;padding:10px;background:#f2f2f7;border:none;border-top:1px solid #e5e5ea;color:#007aff;font-size:13px;font-weight:500;cursor:pointer;text-align:center}
+  .clear-btn.show{display:block}
+  tr.selected td{background:#eef4ff;color:#007aff;font-weight:500}
+  tr.clickable{cursor:pointer}
+  tr.clickable:active td{opacity:0.7}
   .rep-badge{display:inline-block;background:#e8f4e8;color:#2d6a2d;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
 </style>
 </head>
@@ -129,6 +134,7 @@
         <select id="prf" onchange="render()"><option value="all">All products</option></select>
       </div>
     </div>
+    <button class="clear-btn" id="clear-btn" onclick="clearAllFilters()">✕ Clear all filters</button>
     <div class="metrics" id="metrics"></div>
     <div class="sec">
       <div class="st">Monthly Revenue</div>
@@ -142,8 +148,7 @@
     <div class="tsec">
       <table><thead><tr>
         <th id="c1">Channel</th>
-        <th style="text-align:right">Quantity</th>
-        <th style="text-align:center">Revenue</th>
+        <th style="text-align:right">Revenue</th>
       </tr></thead><tbody id="tb"></tbody></table>
     </div>
   </div>
@@ -165,7 +170,7 @@ const PROXIES   = [
 // ── STATE ────────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let allRows=[], periods=[], channels=[], customers=[], products=[];
-let chart=null, activeTab='channels';
+let chart=null, activeTab='channels', selectedItem=null;
 let currentUser=null; // {name, pin, role, channel}
 
 // ── HELPERS ──────────────────────────────────────────────────────────
@@ -330,14 +335,60 @@ function onFYChange(){
   const pSel=document.getElementById('pf');
   pSel.value='all'; pSel.disabled=(fy!=='all');
   pSel.style.opacity=(fy!=='all')?'0.4':'1';
+  selectedItem=null;
+  render();
+}
+
+function toggleItem(name){
+  selectedItem = selectedItem===name ? null : name;
+  // Apply selection as a filter on the appropriate dropdown
+  const key = activeTab==='products'?'prf':activeTab==='channels'?'cf':'cuf';
+  if(selectedItem){
+    document.getElementById(key).value = selectedItem;
+    if(key==='cf') updateCustomers(selectedItem);
+  } else {
+    document.getElementById(key).value = 'all';
+    if(key==='cf') updateCustomers('all');
+  }
   render();
 }
 
 function sw(t){
   activeTab=t;
+  selectedItem=null;
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',['channels','customers','products'][i]===t));
-  // Hide channel tab for reps (only one channel)
   render();
+}
+
+function clearAllFilters(){
+  document.getElementById('fyf').value='all';
+  document.getElementById('pf').value='all';
+  document.getElementById('pf').disabled=false;
+  document.getElementById('pf').style.opacity='1';
+  if(currentUser.role!=='rep' || currentUser.channels.length>1){
+    document.getElementById('cf').value='all';
+    document.getElementById('cf').disabled=false;
+  }
+  document.getElementById('cuf').value='all';
+  document.getElementById('prf').value='all';
+  selectedItem=null;
+  updateClearBtn();
+  if(currentUser.role==='rep' && currentUser.channels.length===1){
+    updateCustomers(currentUser.channels[0]);
+  } else {
+    updateCustomers('all');
+  }
+  render();
+}
+
+function updateClearBtn(){
+  const fy=document.getElementById('fyf').value;
+  const p=document.getElementById('pf').value;
+  const c=document.getElementById('cf').value;
+  const cu=document.getElementById('cuf').value;
+  const pr=document.getElementById('prf').value;
+  const active=fy!=='all'||p!=='all'||c!=='all'||cu!=='all'||pr!=='all'||selectedItem!==null;
+  document.getElementById('clear-btn').classList.toggle('show', active);
 }
 
 function render(){
