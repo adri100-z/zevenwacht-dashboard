@@ -45,6 +45,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .filter-row select{flex:1;font-size:12px;padding:8px 10px;border:1px solid #d1d1d6;border-radius:10px;background:#f9f9fb;color:#1c1c1e;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:24px;outline:none}
 .filter-row select:focus{border-color:#007aff}
 .filter-row select:disabled{opacity:.4;cursor:not-allowed}
+.year-btns{display:flex;gap:6px;padding:4px 0 2px}
+.yr-btn{flex:1;padding:7px 4px;border-radius:10px;border:1px solid #d1d1d6;background:#f9f9fb;color:#8e8e93;font-size:13px;font-weight:500;cursor:pointer}
+.yr-btn.on{background:#007aff;border-color:#007aff;color:#fff}
+.yr-btn:active{opacity:.7}
 .clear-wrap{padding:0 16px 10px;background:#fff;border-bottom:1px solid #e5e5ea;display:none}
 .clear-wrap.show{display:block}
 .clear-btn{width:100%;padding:9px;border-radius:10px;border:1px solid #d1d1d6;background:#f9f9fb;color:#ff3b30;font-size:13px;font-weight:500;cursor:pointer}
@@ -126,24 +130,21 @@ tr.row-item.selected td{background:#eef4ff;color:#007aff;font-weight:600}
 
   <div id="main" style="display:none">
     <div class="filters">
-      <div class="filter-row">
-        <select id="fyf" onchange="onFYChange()">
-          <option value="all">All years</option>
-          <option value="2023">2023</option>
-          <option value="2024">2024</option>
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
-        </select>
-        <select id="pf" onchange="selectedItem=null;render()"><option value="all">All periods</option></select>
+      <div class="year-btns" id="year-btns">
+        <button class="yr-btn on" onclick="setYear('all')">All</button>
+        <button class="yr-btn" onclick="setYear('2023')">2023</button>
+        <button class="yr-btn" onclick="setYear('2024')">2024</button>
+        <button class="yr-btn" onclick="setYear('2025')">2025</button>
+        <button class="yr-btn" onclick="setYear('2026')">2026</button>
       </div>
       <div class="filter-row">
-        <select id="cf" onchange="selectedItem=null;updateCustomers(this.value);render()"><option value="all">All channels</option></select>
+        <select id="cf" onchange="selectedItem=null;selectedPeriod=null;updateCustomers(this.value);render()"><option value="all">All channels</option></select>
       </div>
       <div class="filter-row">
-        <select id="cuf" onchange="selectedItem=null;render()"><option value="all">All customers</option></select>
+        <select id="cuf" onchange="selectedItem=null;selectedPeriod=null;render()"><option value="all">All customers</option></select>
       </div>
       <div class="filter-row">
-        <select id="prf" onchange="selectedItem=null;render()"><option value="all">All products</option></select>
+        <select id="prf" onchange="selectedItem=null;selectedPeriod=null;render()"><option value="all">All products</option></select>
       </div>
     </div>
     <div class="clear-wrap" id="clear-wrap">
@@ -185,7 +186,7 @@ const PROXIES   = [
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let allRows=[], periods=[], channels=[], customers=[], products=[];
-let chart=null, activeTab='channels', selectedItem=null;
+let chart=null, activeTab='channels', selectedItem=null, selectedYear='all', selectedPeriod=null;
 let currentUser=null;
 
 // ── UTILS ─────────────────────────────────────────────────────────────
@@ -312,22 +313,15 @@ function updateCustomers(ch){
 }
 
 // ── FILTERS ───────────────────────────────────────────────────────────
-function onFYChange(){
-  const fy=document.getElementById('fyf').value;
-  const ps=document.getElementById('pf');
-  ps.value='all';
-  ps.disabled=false;
-  ps.style.opacity='1';
-  // Repopulate period dropdown filtered to selected year
-  ps.innerHTML='<option value="all">All periods</option>';
-  const filteredPeriods=fy==='all'?periods:periods.filter(p=>p.slice(-4)===fy);
-  filteredPeriods.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=ml(p);ps.appendChild(o);});
-  selectedItem=null; render();
+function setYear(yr){
+  selectedYear=yr; selectedPeriod=null; selectedItem=null;
+  document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('on',b.textContent.trim()===(yr==='all'?'All':yr)));
+  render();
 }
 
 function clearAllFilters(){
-  document.getElementById('fyf').value='all';
-  const ps=document.getElementById('pf'); ps.value='all'; ps.disabled=false; ps.style.opacity='1';
+  selectedYear='all'; selectedPeriod=null;
+  document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('on',b.textContent.trim()==='All'));
   if(!(currentUser.role==='rep'&&currentUser.channels.length===1))
     document.getElementById('cf').value='all';
   document.getElementById('cuf').value='all';
@@ -339,13 +333,11 @@ function clearAllFilters(){
 }
 
 function updateClearBtn(){
-  const fy=document.getElementById('fyf').value;
-  const p=document.getElementById('pf').value;
   const c=document.getElementById('cf').value;
   const cu=document.getElementById('cuf').value;
   const pr=document.getElementById('prf').value;
   const repSingleCh=currentUser.role==='rep'&&currentUser.channels.length===1;
-  const active=fy!=='all'||p!=='all'||(c!=='all'&&!repSingleCh)||cu!=='all'||pr!=='all'||selectedItem!==null;
+  const active=selectedYear!=='all'||selectedPeriod!==null||(c!=='all'&&!repSingleCh)||cu!=='all'||pr!=='all'||selectedItem!==null;
   document.getElementById('clear-wrap').classList.toggle('show', active);
 }
 
@@ -394,19 +386,16 @@ function toggleItem(idx){
 // ── RENDER ────────────────────────────────────────────────────────────
 function render(){
   if(!allRows.length) return;
-  const period  =document.getElementById('pf').value;
   const channel =document.getElementById('cf').value;
   const customer=document.getElementById('cuf').value;
   const product =document.getElementById('prf').value;
-  const fy      =document.getElementById('fyf').value;
-  const fyP     =fy!=='all'?[...new Set(allRows.filter(r=>r.period.slice(-4)===fy).map(r=>r.period))]:null;
 
   const rows=allRows.filter(r=>{
-    if(fyP&&!fyP.includes(r.period))   return false;
-    if(period!=='all'  &&r.period  !==period)   return false;
-    if(channel!=='all' &&r.channel !==channel)  return false;
-    if(customer!=='all'&&r.customer!==customer) return false;
-    if(product!=='all' &&r.product !==product)  return false;
+    if(selectedYear!=='all'&&r.period.slice(-4)!==selectedYear) return false;
+    if(selectedPeriod&&r.period!==selectedPeriod)               return false;
+    if(channel!=='all' &&r.channel !==channel)                  return false;
+    if(customer!=='all'&&r.customer!==customer)                 return false;
+    if(product!=='all' &&r.product !==product)                  return false;
     return true;
   });
 
@@ -420,17 +409,25 @@ function render(){
   rows.forEach(r=>{byM[r.period]=(byM[r.period]||0)+r.amount;});
   const sp=Object.keys(byM).sort(sortP);
   if(chart)chart.destroy();
+  const barColors=sp.map(p=>selectedPeriod===p?'#ff9500':'#007aff');
   chart=new Chart(document.getElementById('tc'),{
     type:'bar',
-    data:{labels:sp.map(ml),datasets:[{label:'Revenue',data:sp.map(p=>Math.round(byM[p])),backgroundColor:'#007aff',borderRadius:4,borderSkipped:false}]},
+    data:{labels:sp.map(ml),datasets:[{label:'Revenue',data:sp.map(p=>Math.round(byM[p])),backgroundColor:barColors,borderRadius:4,borderSkipped:false}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}},
       scales:{
         x:{ticks:{color:'#8e8e93',font:{size:9},maxRotation:45},grid:{display:false},border:{display:false}},
         y:{ticks:{color:'#8e8e93',font:{size:9},callback:v=>fmt(v)},grid:{color:'rgba(0,0,0,0.05)'},border:{display:false}}
+      },
+      onClick:(evt,els)=>{
+        if(!els.length){selectedPeriod=null;render();return;}
+        const p=sp[els[0].index];
+        selectedPeriod=selectedPeriod===p?null:p;
+        render();
       }
     }
   });
+  document.getElementById('tc').style.cursor='pointer';
 
   const key=activeTab==='channels'?'channel':activeTab==='customers'?'customer':'product';
   const grp={};
