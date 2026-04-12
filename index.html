@@ -296,6 +296,7 @@ function initDashboard(){
   document.getElementById('loadmsg').style.display='none';
   document.getElementById('main').style.display='block';
   selectedItem=null;
+  tabSelections.channels=null; tabSelections.customers=null; tabSelections.products=null;
   render();
 }
 
@@ -317,6 +318,7 @@ function setYear(yr){
 
 function clearAllFilters(){
   selectedYear='all'; selectedPeriod=null;
+  tabSelections.channels=null; tabSelections.customers=null; tabSelections.products=null;
   document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('on',b.textContent.trim()==='All'));
   if(!(currentUser.role==='rep'&&currentUser.channels.length===1))
     document.getElementById('cf').value='all';
@@ -333,47 +335,69 @@ function updateClearBtn(){
   const cu=document.getElementById('cuf').value;
   const pr=document.getElementById('prf').value;
   const repSingleCh=currentUser.role==='rep'&&currentUser.channels.length===1;
-  const active=selectedYear!=='all'||selectedPeriod!==null||(c!=='all'&&!repSingleCh)||cu!=='all'||pr!=='all'||selectedItem!==null;
+  const anyTabSel=tabSelections.channels||tabSelections.customers||tabSelections.products;
+  const active=selectedYear!=='all'||selectedPeriod!==null||(c!=='all'&&!repSingleCh)||cu!=='all'||pr!=='all'||anyTabSel;
   document.getElementById('clear-wrap').classList.toggle('show', active);
 }
 
 // ── TAB SELECTION ─────────────────────────────────────────────────────
 function sw(t){
-  activeTab=t; selectedItem=null;
+  activeTab=t;
+  selectedItem=null;
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',['channels','customers','products'][i]===t));
   render();
 }
 
+// Track selections per tab independently
+const tabSelections={channels:null,customers:null,products:null};
+
 function toggleItem(idx){
   const name=window._tableItems[idx];
-  if(selectedItem===name){
-    // deselect — stay on current tab
+  const current=tabSelections[activeTab];
+
+  if(current===name){
+    // Deselect — clear this tab's selection and its filter
+    tabSelections[activeTab]=null;
+    if(activeTab==='channels'){
+      if(!(currentUser.role==='rep'&&currentUser.channels.length===1))
+        document.getElementById('cf').value='all';
+      // also clear downstream
+      tabSelections.customers=null;
+      tabSelections.products=null;
+      document.getElementById('cuf').value='all';
+      document.getElementById('prf').value='all';
+      updateCustomers('all');
+    } else if(activeTab==='customers'){
+      document.getElementById('cuf').value='all';
+      tabSelections.products=null;
+      document.getElementById('prf').value='all';
+    } else {
+      document.getElementById('prf').value='all';
+    }
     selectedItem=null;
-    const key=activeTab==='channels'?'cf':activeTab==='customers'?'cuf':'prf';
-    if(!(activeTab==='channels'&&currentUser.role==='rep'&&currentUser.channels.length===1))
-      document.getElementById(key).value='all';
-    if(activeTab==='channels') updateCustomers('all');
     render();
   } else {
-    selectedItem=name;
+    // Select — set filter, highlight, and advance to next tab
+    tabSelections[activeTab]=name;
+    selectedItem=null;
+
     if(activeTab==='channels'){
-      // Select channel filter and jump to By Customer tab
       document.getElementById('cf').value=name;
       updateCustomers(name);
       document.getElementById('cuf').value='all';
-      selectedItem=null;
+      tabSelections.customers=null;
+      tabSelections.products=null;
+      document.getElementById('prf').value='all';
       activeTab='customers';
       document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',i===1));
     } else if(activeTab==='customers'){
-      // Select customer filter and jump to By Product tab
       document.getElementById('cuf').value=name;
-      selectedItem=null;
+      tabSelections.products=null;
+      document.getElementById('prf').value='all';
       activeTab='products';
       document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',i===2));
     } else {
-      // Products tab — just highlight
-      const key='prf';
-      document.getElementById(key).value=name;
+      document.getElementById('prf').value=name;
     }
     render();
   }
@@ -436,8 +460,9 @@ function render(){
   // adjust column widths
   document.querySelector('th:nth-child(1)').style.width=showQty?'57%':'70%';
   document.getElementById('th-qty').style.width='13%';
+  const tabSel=tabSelections[activeTab];
   document.getElementById('tb').innerHTML=sorted.map(([name,d],i)=>{
-    const sel=selectedItem===name;
+    const sel=tabSel===name;
     return `<tr class="row-item${sel?' selected':''}" onclick="toggleItem(${i})">
       <td title="${name}">${name}</td>
       ${showQty?`<td class="n">${d.qty.toLocaleString()}</td>`:''}
