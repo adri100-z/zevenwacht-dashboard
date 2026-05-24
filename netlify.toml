@@ -1,0 +1,10 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  included_files = ["data/*.enc.json"]
+
+[dev]
+  publish = "public"
+  functions = "netlify/functions"
