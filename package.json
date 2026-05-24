@@ -2,10 +2,12 @@
   "scripts": {
     "encrypt": "node scripts/encrypt-data.js",
     "hash-pin": "node scripts/hash-pin.js",
+    "import-sales-excel": "node scripts/import-sales-excel.js",
     "dev": "netlify dev",
     "check:secrets": "node scripts/check-no-secrets.js"
   },
   "devDependencies": {
-    "netlify-cli": "^17.38.1"
+    "netlify-cli": "^17.38.1",
+    "xlsx": "^0.18.5"
   }
 }

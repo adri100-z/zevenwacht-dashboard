@@ -29,6 +29,31 @@ $env:DATA_ENCRYPTION_KEY = '<your base64 key>'
 npm run encrypt
 ```
 
+## Replace sales data from Excel
+
+The Excel workbook should have one row per sale and a header row. The importer accepts these column names:
+
+- Date: `period`, `date`, `month`, or `invoice_date`
+- Area: `channel`, `area`, `region`, or `sales_area`
+- Customer: `customer`, `customer_name`, or `client`
+- Product: `product`, `product_name`, `item`, or `item_description`
+- Quantity: `qty`, `quantity`, `bottles`, or `units`
+- Revenue: `amount`, `revenue`, `sales`, `value`, or `net_sales`
+
+Import the first worksheet:
+
+```powershell
+npm.cmd run import-sales-excel -- C:\path\to\sales.xlsx
+```
+
+Import a named worksheet:
+
+```powershell
+npm.cmd run import-sales-excel -- C:\path\to\sales.xlsx "Sheet1"
+```
+
+Then re-encrypt and commit `data/sales-data.enc.json`.
+
 ## Add or change a user
 
 Generate a PIN hash:
