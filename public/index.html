@@ -248,7 +248,7 @@ tr.row-item.selected td{background:#eef3e0;color:#6F8A3A;font-weight:600}
 .dash-charts-row{display:flex;flex-direction:column;gap:10px}
 .dash-chart-box{border:2px solid #e5e5ea;border-radius:10px;padding:12px 12px 8px}
 .dash-chart-title{font-size:10px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
-.dash-chart-cw{position:relative;height:160px}
+.dash-chart-cw{position:relative;height:280px}
 /* Mobile-only nav (shown below header on mobile, hidden on desktop) */
 .mobile-only-nav{display:flex}
 @media(max-width:599px){
@@ -268,10 +268,10 @@ tr.row-item.selected td{background:#eef3e0;color:#6F8A3A;font-weight:600}
   .dpc-label{font-size:17px}
   #dash-sections{flex-direction:row;align-items:flex-start;padding:14px 16px;gap:12px}
   .dash-section{display:block!important;flex:1;min-width:0;padding:0}
-  .dash-chart-cw{height:130px}
+  .dash-chart-cw{height:280px}
 }
-@media(min-width:1024px){.dash-chart-cw{height:160px}}
-@media(min-width:1400px){.dash-chart-cw{height:185px}}
+@media(min-width:1024px){.dash-chart-cw{height:300px}}
+@media(min-width:1400px){.dash-chart-cw{height:320px}}
 /* Compact mobile filters (reduce whitespace in filter box) */
 @media(max-width:599px){
   .filters{padding:10px 12px 8px;gap:6px}
@@ -384,22 +384,22 @@ tr.row-item.selected td{background:#eef3e0;color:#6F8A3A;font-weight:600}
         <div class="dash-section active" data-period="month">
           <div id="dpc-month"></div>
           <div class="dash-charts-row">
-            <div class="dash-chart-box"><div class="dash-chart-title">Top 5 Customers</div><div class="dash-chart-cw"><canvas id="dc-month-cust"></canvas></div></div>
-            <div class="dash-chart-box"><div class="dash-chart-title">Top 5 Products</div><div class="dash-chart-cw"><canvas id="dc-month-prod"></canvas></div></div>
+            <div class="dash-chart-box"><div class="dash-chart-title">Top 10 Customers</div><div class="dash-chart-cw"><canvas id="dc-month-cust"></canvas></div></div>
+            <div class="dash-chart-box"><div class="dash-chart-title">Top 10 Products</div><div class="dash-chart-cw"><canvas id="dc-month-prod"></canvas></div></div>
           </div>
         </div>
         <div class="dash-section" data-period="ytd">
           <div id="dpc-ytd"></div>
           <div class="dash-charts-row">
-            <div class="dash-chart-box"><div class="dash-chart-title">Top 5 Customers</div><div class="dash-chart-cw"><canvas id="dc-ytd-cust"></canvas></div></div>
-            <div class="dash-chart-box"><div class="dash-chart-title">Top 5 Products</div><div class="dash-chart-cw"><canvas id="dc-ytd-prod"></canvas></div></div>
+            <div class="dash-chart-box"><div class="dash-chart-title">Top 10 Customers</div><div class="dash-chart-cw"><canvas id="dc-ytd-cust"></canvas></div></div>
+            <div class="dash-chart-box"><div class="dash-chart-title">Top 10 Products</div><div class="dash-chart-cw"><canvas id="dc-ytd-prod"></canvas></div></div>
           </div>
         </div>
         <div class="dash-section" data-period="12m">
           <div id="dpc-12m"></div>
           <div class="dash-charts-row">
-            <div class="dash-chart-box"><div class="dash-chart-title">Top 5 Customers</div><div class="dash-chart-cw"><canvas id="dc-12m-cust"></canvas></div></div>
-            <div class="dash-chart-box"><div class="dash-chart-title">Top 5 Products</div><div class="dash-chart-cw"><canvas id="dc-12m-prod"></canvas></div></div>
+            <div class="dash-chart-box"><div class="dash-chart-title">Top 10 Customers</div><div class="dash-chart-cw"><canvas id="dc-12m-cust"></canvas></div></div>
+            <div class="dash-chart-box"><div class="dash-chart-title">Top 10 Products</div><div class="dash-chart-cw"><canvas id="dc-12m-prod"></canvas></div></div>
           </div>
         </div>
       </div>
@@ -533,6 +533,7 @@ function startDashboard(){
     badge.textContent=currentUser.channels.join(', ');
     badge.style.display='inline-block';
   }
+  showView('dashboard');
   initDashboard();
   setTimeout(fixLayout,0);
   window.addEventListener('resize',fixLayout);
@@ -571,8 +572,10 @@ function initDashboard(){
     document.getElementById('last-updated').textContent='Data as at '
       +new Date(parseInt(_y),parseInt(_m)-1,parseInt(_d)).toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'});}
 
+  const latestPeriod=periods.length?periods[periods.length-1]:null;
   tabSelections.channels=null; tabSelections.customers=null; tabSelections.products=null;
-  selectedYear='all'; selectedPeriod=null; selectedItem=null;
+  selectedYear=latestPeriod?latestPeriod.slice(-4):'all'; selectedPeriod=latestPeriod; selectedItem=null;
+  document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('on',b.textContent.trim()===selectedYear));
   render();
 }
 
@@ -941,7 +944,7 @@ function exportPDF(){
 }
 
 // ── VIEW MANAGEMENT ──────────────────────────────────────────────────
-function switchView(v){
+function showView(v){
   activeView=v;
   renderAreaButtons();
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
@@ -949,11 +952,9 @@ function switchView(v){
   document.getElementById('view-detail').style.display=v==='detail'?'':'none';
   const filters=document.querySelector('.filters');
   if(filters) filters.classList.toggle('dashboard-mode',v==='dashboard');
-  if(v==='dashboard'){
-    selectedYear='all'; selectedPeriod=null;
-    document.getElementById('cuf').value='all';
-    document.getElementById('prf').value='all';
-  }
+}
+function switchView(v){
+  showView(v);
   render();
 }
 function setAnalyticsPeriod(p){
@@ -1012,7 +1013,7 @@ function renderTop5Chart(canvasId,rows,key){
   if(!canvas) return;
   const map={};
   rows.forEach(r=>{map[r[key]]=(map[r[key]]||0)+r.amount;});
-  const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
   if(dashCharts[canvasId]){dashCharts[canvasId].destroy();delete dashCharts[canvasId];}
   if(!sorted.length) return;
   const labels=sorted.map(([k])=>k);
@@ -1026,7 +1027,7 @@ function renderTop5Chart(canvasId,rows,key){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'R'+Math.round(c.raw).toLocaleString()}}},
       scales:{
         x:{ticks:{callback:v=>'R'+Math.round(v/1000)+'k',font:{size:11}},grid:{color:'#f2f2f7'}},
-        y:{ticks:{font:{size:12},maxRotation:0}}
+        y:{ticks:{font:{size:11},maxRotation:0,autoSkip:false}}
       }
     }
   });

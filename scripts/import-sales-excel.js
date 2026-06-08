@@ -26,16 +26,44 @@ if (!worksheet) {
   process.exit(1);
 }
 
-const rows = xlsx.utils.sheet_to_json(worksheet, {
+const rawRows = xlsx.utils.sheet_to_json(worksheet, {
+  header: 1,
   defval: '',
-  raw: false,
+  raw: true,
   blankrows: false
 });
 
-if (!rows.length) {
+if (!rawRows.length) {
   console.error(`No data rows found in sheet: ${sheetName}`);
   process.exit(1);
 }
+
+const fieldNames = [
+  'period',
+  'date',
+  'month',
+  'invoice_date',
+  'channel',
+  'area',
+  'region',
+  'sales_area',
+  'customer',
+  'customer_name',
+  'client',
+  'product',
+  'product_name',
+  'item',
+  'item_description',
+  'qty',
+  'quantity',
+  'bottles',
+  'units',
+  'amount',
+  'revenue',
+  'sales',
+  'value',
+  'net_sales'
+];
 
 function normalizeHeader(value) {
   return String(value || '')
@@ -60,6 +88,14 @@ function normalizeRow(row) {
   return out;
 }
 
+function rowToObject(headers, row) {
+  const out = {};
+  headers.forEach((header, index) => {
+    if (header) out[header] = row[index];
+  });
+  return out;
+}
+
 function parseDate(value, line) {
   if (value instanceof Date && !Number.isNaN(value.valueOf())) {
     return [
@@ -74,8 +110,11 @@ function parseDate(value, line) {
   const match = dateOnly.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (!match) throw new Error(`Invalid date on row ${line}: ${text}`);
 
-  const day = match[1].padStart(2, '0');
-  const month = match[2].padStart(2, '0');
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+  const isUsDate = second > 12 && first <= 12;
+  const day = String(isUsDate ? second : first).padStart(2, '0');
+  const month = String(isUsDate ? first : second).padStart(2, '0');
   const year = match[3].length === 2 ? `20${match[3]}` : match[3];
   return `${day}/${month}/${year}`;
 }
@@ -87,9 +126,23 @@ function parseNumber(value, label, line) {
   return num;
 }
 
-const salesRows = rows.map((sourceRow, index) => {
-  const line = index + 2;
-  const row = normalizeRow(sourceRow);
+const normalizedHeaders = rawRows[0].map(normalizeHeader);
+const hasHeader = normalizedHeaders.some(header => fieldNames.includes(header));
+const sourceRows = hasHeader
+  ? rawRows.slice(1).map((row, index) => ({ line: index + 2, row: normalizeRow(rowToObject(normalizedHeaders, row)) }))
+  : rawRows.map((row, index) => ({
+      line: index + 1,
+      row: normalizeRow({
+        period: row[0],
+        channel: row[1],
+        customer: row[2],
+        product: row[3],
+        qty: row[4],
+        amount: row[5]
+      })
+    }));
+
+const salesRows = sourceRows.map(({ row, line }) => {
 
   const period = parseDate(pick(row, ['period', 'date', 'month', 'invoice_date']), line);
   const channel = String(pick(row, ['channel', 'area', 'region', 'sales_area'])).trim();
