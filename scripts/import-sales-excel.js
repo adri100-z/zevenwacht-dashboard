@@ -17,7 +17,8 @@ if (!fs.existsSync(sourcePath)) {
 }
 
 const workbook = xlsx.readFile(sourcePath, { cellDates: true });
-const sheetName = sheetNameArg || workbook.SheetNames[0];
+const appDataSheet = workbook.SheetNames.find(name => name.toLowerCase() === 'appdata');
+const sheetName = sheetNameArg || appDataSheet || workbook.SheetNames[0];
 const worksheet = workbook.Sheets[sheetName];
 
 if (!worksheet) {
@@ -42,11 +43,14 @@ const fieldNames = [
   'period',
   'date',
   'month',
+  'month_end',
   'invoice_date',
   'channel',
   'area',
   'region',
   'sales_area',
+  'salesmanname',
+  'salesman_name',
   'customer',
   'customer_name',
   'client',
@@ -105,6 +109,17 @@ function parseDate(value, line) {
     ].join('/');
   }
 
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = xlsx.SSF.parse_date_code(value);
+    if (parsed) {
+      return [
+        String(parsed.d).padStart(2, '0'),
+        String(parsed.m).padStart(2, '0'),
+        parsed.y
+      ].join('/');
+    }
+  }
+
   const text = String(value || '').trim();
   const dateOnly = text.split(/\s+/)[0];
   const match = dateOnly.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
@@ -120,7 +135,7 @@ function parseDate(value, line) {
 }
 
 function parseNumber(value, label, line) {
-  const text = String(value || '').replace(/[R,\s]/g, '');
+  const text = String(value ?? '').replace(/[R,\s]/g, '');
   const num = Number(text);
   if (!Number.isFinite(num)) throw new Error(`Invalid ${label} on row ${line}: ${value}`);
   return num;
@@ -144,19 +159,20 @@ const sourceRows = hasHeader
 
 const salesRows = sourceRows.map(({ row, line }) => {
 
-  const period = parseDate(pick(row, ['period', 'date', 'month', 'invoice_date']), line);
-  const channel = String(pick(row, ['channel', 'area', 'region', 'sales_area'])).trim();
+  const period = parseDate(pick(row, ['period', 'date', 'month', 'month_end', 'invoice_date']), line);
+  let channel = String(pick(row, ['channel', 'area', 'region', 'sales_area', 'salesmanname', 'salesman_name'])).trim();
   const customer = String(pick(row, ['customer', 'customer_name', 'client'])).trim();
   const product = String(pick(row, ['product', 'product_name', 'item', 'item_description'])).trim();
   const qty = parseNumber(pick(row, ['qty', 'quantity', 'bottles', 'units']), 'quantity', line);
   const amount = parseNumber(pick(row, ['amount', 'revenue', 'sales', 'value', 'net_sales']), 'amount', line);
 
-  if (!channel) throw new Error(`Missing channel/area on row ${line}`);
+  if (qty === 0 && amount === 0) return null;
+  if (!channel) channel = 'Unassigned';
   if (!customer) throw new Error(`Missing customer on row ${line}`);
   if (!product) throw new Error(`Missing product on row ${line}`);
 
   return [period, channel, customer, product, qty, amount];
-});
+}).filter(Boolean);
 
 const outPath = path.join(__dirname, '..', 'private', 'sales-data.json');
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
